@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#05030c" />
+<title>VOLT RALLY — Superpowered Racket Duel</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2305030c'/%3E%3Cpath d='M20 18h20l-8 14h12L24 50l6-16H18z' fill='%232ce8ff'/%3E%3C/svg%3E" />
+<meta name="description" content="A 3D neon racket duel. Rally a plasma ball, charge your overdrive, and unleash time-warping superpowers against VEXA." />
+<link rel="stylesheet" href="./styles.css" />
+<link rel="preload" href="./vendor/fonts/orbitron.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="preload" href="./vendor/fonts/rajdhani-600.woff2" as="font" type="font/woff2" crossorigin />
+</head>
+<body>
+<div id="app">
+  <canvas id="scene" aria-label="3D racket duel arena"></canvas>
+
+  <div id="fxTint" aria-hidden="true"></div>
+  <div id="fxFlash" aria-hidden="true"></div>
+  <div id="fxScan" aria-hidden="true"></div>
+
+  <!-- ================= HUD ================= -->
+  <div id="hud" class="hud" aria-live="polite">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <span class="brand-text">VOLT<em>RALLY</em></span>
+      </div>
+
+      <div class="scoreboard" aria-label="Match score">
+        <div class="score-side you">
+          <span class="score-name">YOU</span>
+          <span class="score-num" id="scorePlayer">0</span>
+        </div>
+        <div class="score-mid">
+          <span class="vs">VS</span>
+          <span class="score-rule"></span>
+          <span class="first-to">FIRST TO 7</span>
+        </div>
+        <div class="score-side ai">
+          <span class="score-num" id="scoreAI">0</span>
+          <span class="score-name">VEXA</span>
+        </div>
+      </div>
+
+      <div class="utils">
+        <button class="icon-btn" id="muteBtn" type="button" aria-label="Toggle sound" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/><path class="slash" d="M4 4l16 16"/></svg>
+        </button>
+        <button class="icon-btn" id="pauseBtn" type="button" aria-label="Pause">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="rally-chip" id="rallyChip">
+      <span class="rally-label">RALLY</span>
+      <b id="rallyCount">0</b>
+      <span class="rally-best" id="rallyBest"></span>
+    </div>
+
+    <div class="feed" id="feed"></div>
+
+    <div class="banner" id="banner">
+      <div class="banner-main" id="bannerMain"></div>
+      <div class="banner-sub" id="bannerSub"></div>
+    </div>
+
+    <div class="bottom-deck">
+      <div class="charge-wrap">
+        <div class="charge-head">
+          <span>OVERDRIVE</span>
+          <span id="chargePct">0%</span>
+        </div>
+        <div class="charge-track" id="chargeTrack">
+          <div class="charge-fill" id="chargeFill"></div>
+          <div class="charge-ticks" aria-hidden="true"></div>
+          <div class="charge-ready" id="chargeReady">R — SUPER SMASH</div>
+        </div>
+        <div class="charge-hint">RALLY &amp; PERFECT RETURNS CHARGE YOUR CORE</div>
+      </div>
+
+      <div class="powerbar" aria-label="Superpowers">
+        <button class="power" id="pwDash" type="button" data-key="Q" aria-label="Dash, Q">
+          <span class="pw-ring"></span>
+          <span class="pw-glyph">⇥</span>
+          <span class="pw-label">DASH</span>
+          <span class="pw-key">Q</span>
+          <span class="pw-cd" id="cdDash"></span>
+        </button>
+        <button class="power" id="pwWarp" type="button" data-key="E" aria-label="Time warp, E">
+          <span class="pw-ring"></span>
+          <span class="pw-glyph">◷</span>
+          <span class="pw-label">WARP</span>
+          <span class="pw-key">E</span>
+          <span class="pw-cd" id="cdWarp"></span>
+        </button>
+        <button class="power ult" id="pwSmash" type="button" data-key="R" aria-label="Super smash, R">
+          <span class="pw-ring"></span>
+          <span class="pw-glyph">✹</span>
+          <span class="pw-label">SMASH</span>
+          <span class="pw-key">R</span>
+          <span class="pw-cd" id="cdSmash"></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="control-hint" id="controlHint">
+      <span><kbd>WASD</kbd> / MOVE</span>
+      <span><kbd>CLICK</kbd> / SWING</span>
+      <span><kbd>Q</kbd><kbd>E</kbd><kbd>R</kbd> / POWERS</span>
+      <span class="hint-fade" id="hintFade">MOVE LEFT &amp; RIGHT TO AIM YOUR RETURN</span>
+    </div>
+
+    <div class="boost-badge" id="boostBadge">SUPER SMASH ARMED</div>
+  </div>
+
+  <!-- ================= TOUCH ================= -->
+  <div class="touch-ui" id="touchUI" aria-hidden="true">
+    <div class="stick" id="stick">
+      <div class="stick-base"></div>
+      <div class="stick-knob" id="stickKnob"></div>
+      <span class="stick-label">MOVE</span>
+    </div>
+    <button class="swing-btn" id="swingBtn" type="button">SWING</button>
+  </div>
+
+  <!-- ================= MENU ================= -->
+  <section class="overlay menu" id="menu">
+    <div class="menu-beam beam-a"></div>
+    <div class="menu-beam beam-b"></div>
+    <div class="menu-inner">
+      <div class="eyebrow"><span class="dot"></span> SUPERPOWERED SPORT <em>//</em> NEO-TOKYO 2088</div>
+      <h1 class="logo">
+        <span class="logo-volt">VOLT</span>
+        <span class="logo-rally">RALLY</span>
+        <span class="logo-ghost" aria-hidden="true">VOLT</span>
+      </h1>
+      <p class="tagline">The ball is a dying star.<br />Your racket is the only thing keeping it alive.</p>
+
+      <div class="feature-row">
+        <span><i></i> TIME WARP</span>
+        <span><i></i> POWER SMASH</span>
+        <span><i></i> NEON ARENA</span>
+      </div>
+
+      <div class="controls-grid">
+        <div class="control-card">
+          <span class="cc-key">WASD</span>
+          <b>MOVE</b>
+          <small>Slide, rush the net,<br />own the court.</small>
+        </div>
+        <div class="control-card">
+          <span class="cc-key">CLICK</span>
+          <b>SWING</b>
+          <small>Time the swing.<br />Perfect returns hit harder.</small>
+        </div>
+        <div class="control-card">
+          <span class="cc-key">Q E R</span>
+          <b>POWERS</b>
+          <small>Dash. Warp time.<br />Detonate your overdrive.</small>
+        </div>
+      </div>
+
+      <div class="menu-cta">
+        <button class="play-btn" id="playBtn" type="button">
+          <span class="play-ico" aria-hidden="true"></span>
+          <span>PLAY</span>
+          <span class="play-shine" aria-hidden="true"></span>
+        </button>
+        <div class="menu-meta">
+          <span>FIRST TO 7</span>
+          <span class="meta-dot"></span>
+          <span>SINGLE PLAYER</span>
+          <span class="meta-dot"></span>
+          <span>VS VEXA</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="menu-footer">
+      <span>OMGITHUB // ARCADE DIVISION</span>
+      <span class="footer-sound">SOUND ON RECOMMENDED</span>
+    </div>
+
+    <div class="menu-scroll-hint">MOVE TO AIM · SWING AT THE STAR</div>
+  </section>
+
+  <!-- ================= RESULT ================= -->
+  <section class="overlay result" id="result" hidden>
+    <div class="result-card">
+      <div class="eyebrow" id="resultEyebrow">MATCH COMPLETE</div>
+      <h2 id="resultTitle">VICTORY</h2>
+      <p class="result-sub" id="resultSub">THE ARENA REMEMBERS YOUR NAME</p>
+      <div class="result-score">
+        <div><span>YOU</span><b id="resultPlayer">0</b></div>
+        <i>—</i>
+        <div><span>VEXA</span><b id="resultAI">0</b></div>
+      </div>
+      <div class="result-stats">
+        <div><span>LONGEST RALLY</span><b id="statRally">0</b></div>
+        <div><span>PERFECT HITS</span><b id="statPerfect">0</b></div>
+        <div><span>SUPER SMASHES</span><b id="statSmash">0</b></div>
+      </div>
+      <div class="result-actions">
+        <button class="play-btn small" id="againBtn" type="button">
+          <span class="play-ico" aria-hidden="true"></span><span>PLAY AGAIN</span>
+        </button>
+        <button class="ghost-btn" id="menuBtn" type="button">MAIN MENU</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PAUSE ================= -->
+  <section class="overlay pause" id="pause" hidden>
+    <div class="pause-card">
+      <div class="eyebrow">MATCH SUSPENDED</div>
+      <h2>PAUSED</h2>
+      <div class="pause-actions">
+        <button class="play-btn small" id="resumeBtn" type="button">RESUME</button>
+        <button class="ghost-btn" id="restartBtn" type="button">RESTART MATCH</button>
+      </div>
+      <p class="pause-tip">TIP: CROSS-COURT RETURNS PULL VEXA OUT OF POSITION.</p>
+    </div>
+  </section>
+
+  <!-- ================= LOADER ================= -->
+  <div class="loader" id="loader">
+    <div class="loader-mark">VOLT<span>RALLY</span></div>
+    <div class="loader-bar"><i id="loaderFill"></i></div>
+    <div class="loader-text" id="loaderText">CHARGING THE ARENA</div>
+  </div>
+
+  <noscript><div class="noscript">VOLT RALLY needs JavaScript and WebGL enabled.</div></noscript>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/"
+  }
+}
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
